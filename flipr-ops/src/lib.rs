@@ -63,9 +63,7 @@ impl Backend for CpuBackend {
                 // Convolution on CPU
                 Ok(Vec::new())
             }
-            Operation::Custom { data, .. } => {
-                Ok(data.clone())
-            }
+            Operation::Custom { data, .. } => Ok(data.clone()),
         }
     }
 }
@@ -78,7 +76,9 @@ pub struct GpuBackend {
 impl GpuBackend {
     /// Create a new GPU backend for the specified device.
     pub fn new(device_id: usize) -> Self {
-        Self { _device_id: device_id }
+        Self {
+            _device_id: device_id,
+        }
     }
 }
 
@@ -89,12 +89,8 @@ impl Backend for GpuBackend {
                 // GPU execution would happen here
                 Err(BackendError::NotSupported)
             }
-            Operation::Convolve { .. } => {
-                Err(BackendError::NotSupported)
-            }
-            Operation::Custom { .. } => {
-                Err(BackendError::NotSupported)
-            }
+            Operation::Convolve { .. } => Err(BackendError::NotSupported),
+            Operation::Custom { .. } => Err(BackendError::NotSupported),
         }
     }
 }
@@ -130,12 +126,12 @@ where
 {
     type Pixel = P;
     type Error = BackendError;
-    
+
     fn process_pixel(&self, x: usize, y: usize) -> Result<Option<Self::Pixel>, Self::Error> {
         if x >= self.width || y >= self.height {
             return Ok(None);
         }
-        
+
         // For now, return a default execution
         // In a real implementation, this would process the specific pixel
         match self.backend.execute(&self.operation) {
@@ -150,7 +146,7 @@ where
             Err(e) => Err(e),
         }
     }
-    
+
     fn dimensions(&self) -> (usize, usize) {
         (self.width, self.height)
     }
@@ -168,17 +164,17 @@ impl<P: Pixel> OperationBuilder<P> {
             _phantom: std::marker::PhantomData,
         }
     }
-    
+
     /// Build a pointwise operation.
     pub fn pointwise(op: PointwiseOp) -> Operation<P> {
         Operation::Pointwise { function: op }
     }
-    
+
     /// Build a convolution operation.
     pub fn convolve(kernel: Vec<Vec<f64>>) -> Operation<P> {
         Operation::Convolve { kernel }
     }
-    
+
     /// Build a custom operation.
     pub fn custom(name: String, data: Vec<P>) -> Operation<P> {
         Operation::Custom { name, data }
@@ -195,7 +191,7 @@ impl<P: Pixel> Default for OperationBuilder<P> {
 mod tests {
     use super::*;
     use flipr_core::Gray;
-    
+
     #[test]
     fn test_cpu_backend() {
         let backend = CpuBackend;
@@ -206,7 +202,7 @@ mod tests {
         let result = backend.execute(&op);
         assert!(result.is_ok());
     }
-    
+
     #[test]
     fn test_gpu_backend_not_supported() {
         let backend = GpuBackend::new(0);
@@ -216,7 +212,7 @@ mod tests {
         let result = backend.execute(&op);
         assert!(result.is_err());
     }
-    
+
     #[test]
     fn test_operation_builder() {
         let op = OperationBuilder::<Gray<u8>>::pointwise(PointwiseOp::Brighten(0.5));

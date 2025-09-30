@@ -7,6 +7,15 @@ name = "flipr-core"
 version = "0.1.0"
 
 [[package]]
+name = "flipr-examples"
+version = "0.1.0"
+dependencies = [
+ "flipr-core",
+ "flipr-ops",
+ "flipr-transform",
+]
+
+[[package]]
 name = "flipr-macros"
 version = "0.1.0"
 dependencies = [

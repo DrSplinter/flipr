@@ -35,7 +35,7 @@ impl AffineTransform {
             ty: 0.0,
         }
     }
-    
+
     /// Create a translation transform.
     pub fn translation(dx: f64, dy: f64) -> Self {
         Self {
@@ -47,7 +47,7 @@ impl AffineTransform {
             ty: dy,
         }
     }
-    
+
     /// Create a scaling transform.
     pub fn scale(sx: f64, sy: f64) -> Self {
         Self {
@@ -59,7 +59,7 @@ impl AffineTransform {
             ty: 0.0,
         }
     }
-    
+
     /// Create a rotation transform (angle in radians).
     pub fn rotation(angle: f64) -> Self {
         let cos = angle.cos();
@@ -73,21 +73,21 @@ impl AffineTransform {
             ty: 0.0,
         }
     }
-    
+
     /// Apply the transformation to a point.
     pub fn transform_point(&self, x: f64, y: f64) -> (f64, f64) {
         let x_new = self.a * x + self.b * y + self.tx;
         let y_new = self.c * x + self.d * y + self.ty;
         (x_new, y_new)
     }
-    
+
     /// Compute the inverse transformation.
     pub fn inverse(&self) -> Option<Self> {
         let det = self.a * self.d - self.b * self.c;
         if det.abs() < 1e-10 {
             return None;
         }
-        
+
         let inv_det = 1.0 / det;
         Some(Self {
             a: self.d * inv_det,
@@ -98,7 +98,7 @@ impl AffineTransform {
             ty: (self.c * self.tx - self.a * self.ty) * inv_det,
         })
     }
-    
+
     /// Compose two transformations (apply `other` after `self`).
     pub fn then(&self, other: &AffineTransform) -> Self {
         Self {
@@ -121,7 +121,10 @@ pub struct Transformed<P> {
 impl<P> Transformed<P> {
     /// Create a new transformed processor.
     pub fn new(processor: P, transform: AffineTransform) -> Self {
-        Self { processor, transform }
+        Self {
+            processor,
+            transform,
+        }
     }
 }
 
@@ -131,18 +134,19 @@ where
 {
     type Pixel = P::Pixel;
     type Error = P::Error;
-    
+
     fn process_pixel(&self, x: usize, y: usize) -> Result<Option<Self::Pixel>, Self::Error> {
         // Apply inverse transformation to find source coordinates
         if let Some(inv) = self.transform.inverse() {
             let (src_x, src_y) = inv.transform_point(x as f64, y as f64);
-            
+
             // Simple nearest-neighbor sampling
             let src_x_i = src_x.round() as isize;
             let src_y_i = src_y.round() as isize;
-            
+
             if src_x_i >= 0 && src_y_i >= 0 {
-                self.processor.process_pixel(src_x_i as usize, src_y_i as usize)
+                self.processor
+                    .process_pixel(src_x_i as usize, src_y_i as usize)
             } else {
                 Ok(None)
             }
@@ -150,7 +154,7 @@ where
             Ok(None)
         }
     }
-    
+
     fn dimensions(&self) -> (usize, usize) {
         // For simplicity, use the same dimensions as the source
         // In a real implementation, we'd compute the bounding box
@@ -164,17 +168,17 @@ pub trait TransformExt: ImageProcessor + Sized {
     fn transform(self, transform: AffineTransform) -> Transformed<Self> {
         Transformed::new(self, transform)
     }
-    
+
     /// Translate the image.
     fn translate(self, dx: f64, dy: f64) -> Transformed<Self> {
         self.transform(AffineTransform::translation(dx, dy))
     }
-    
+
     /// Scale the image.
     fn scale(self, sx: f64, sy: f64) -> Transformed<Self> {
         self.transform(AffineTransform::scale(sx, sy))
     }
-    
+
     /// Rotate the image (angle in radians).
     fn rotate(self, angle: f64) -> Transformed<Self> {
         self.transform(AffineTransform::rotation(angle))
@@ -186,7 +190,7 @@ impl<P: ImageProcessor> TransformExt for P {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_identity_transform() {
         let t = AffineTransform::identity();
@@ -194,7 +198,7 @@ mod tests {
         assert_eq!(x, 10.0);
         assert_eq!(y, 20.0);
     }
-    
+
     #[test]
     fn test_translation() {
         let t = AffineTransform::translation(5.0, 10.0);
@@ -202,7 +206,7 @@ mod tests {
         assert_eq!(x, 15.0);
         assert_eq!(y, 30.0);
     }
-    
+
     #[test]
     fn test_scaling() {
         let t = AffineTransform::scale(2.0, 3.0);
@@ -210,7 +214,7 @@ mod tests {
         assert_eq!(x, 20.0);
         assert_eq!(y, 60.0);
     }
-    
+
     #[test]
     fn test_inverse() {
         let t = AffineTransform::translation(5.0, 10.0);
@@ -220,17 +224,17 @@ mod tests {
         assert!((x2 - 10.0).abs() < 1e-10);
         assert!((y2 - 20.0).abs() < 1e-10);
     }
-    
+
     #[test]
     fn test_composition() {
         let t1 = AffineTransform::translation(5.0, 10.0);
         let t2 = AffineTransform::scale(2.0, 2.0);
         let composed = t1.then(&t2);
-        
+
         let (x1, y1) = t1.transform_point(10.0, 20.0);
         let (x2, y2) = t2.transform_point(x1, y1);
         let (x3, y3) = composed.transform_point(10.0, 20.0);
-        
+
         assert_eq!(x2, x3);
         assert_eq!(y2, y3);
     }

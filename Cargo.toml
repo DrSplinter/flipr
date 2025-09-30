@@ -4,7 +4,7 @@ members = [
     "flipr-core",
     "flipr-transform",
     "flipr-ops",
-    "flipr-macros",
+    "flipr-macros", "flipr-examples",
 ]
 
 [workspace.package]

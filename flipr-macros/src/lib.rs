@@ -31,17 +31,17 @@ pub fn image_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let inputs = &input.sig.inputs;
     let output = &input.sig.output;
     let block = &input.block;
-    
+
     // Generate both the original function and an operation builder
     let expanded = quote! {
         #vis fn #fn_name(#inputs) #output {
             #block
         }
-        
+
         /// Operation builder for the function.
         #[allow(non_camel_case_types)]
         pub struct #fn_name;
-        
+
         impl #fn_name {
             /// Get the name of this operation.
             pub fn name() -> &'static str {
@@ -49,7 +49,7 @@ pub fn image_op(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
         }
     };
-    
+
     TokenStream::from(expanded)
 }
 
@@ -75,7 +75,7 @@ pub fn gpu_compatible(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let inputs = &input.sig.inputs;
     let output = &input.sig.output;
     let block = &input.block;
-    
+
     // For now, just pass through the function with metadata
     let expanded = quote! {
         #[doc = "This function is GPU-compatible"]
@@ -83,7 +83,7 @@ pub fn gpu_compatible(_attr: TokenStream, item: TokenStream) -> TokenStream {
             #block
         }
     };
-    
+
     TokenStream::from(expanded)
 }
 
@@ -106,7 +106,7 @@ pub fn gpu_compatible(_attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn derive_operation(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as syn::DeriveInput);
     let name = &input.ident;
-    
+
     let expanded = quote! {
         impl #name {
             /// Create a new operation instance.
@@ -115,6 +115,6 @@ pub fn derive_operation(input: TokenStream) -> TokenStream {
             }
         }
     };
-    
+
     TokenStream::from(expanded)
 }
