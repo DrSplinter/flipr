@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = [
+    "flipr-core",
+    "flipr-transform",
+    "flipr-ops",
+    "flipr-macros",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/DrSplinter/flipr"
+authors = ["DrSplinter"]
+
+[workspace.dependencies]
+flipr-core = { path = "flipr-core", version = "0.1.0" }
+flipr-transform = { path = "flipr-transform", version = "0.1.0" }
+flipr-ops = { path = "flipr-ops", version = "0.1.0" }
+flipr-macros = { path = "flipr-macros", version = "0.1.0" }
