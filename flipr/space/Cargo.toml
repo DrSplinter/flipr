@@ -5,4 +5,5 @@ edition.workspace = true
 authors.workspace = true
 
 [dependencies]
+proptest = "1.8"
 rust_decimal = "1.39"
