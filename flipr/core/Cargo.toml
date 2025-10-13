@@ -1,0 +1,9 @@
+[package]
+name = "flipr"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+description = "Functional Library for Image Processing in Rust"
+
+[dependencies]
+space = { path = "../space" }
