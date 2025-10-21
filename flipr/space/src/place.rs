@@ -1,35 +1,44 @@
-use rust_decimal::prelude::FromPrimitive;
-use rust_decimal::Decimal;
+use crate::offset::Offset;
+use crate::real::Real;
 
-use crate::Offset;
-
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Place {
-    pub(super) x: Decimal,
-    pub(super) y: Decimal,
+    pub(super) x: Real,
+    pub(super) y: Real,
+}
+
+impl std::fmt::Display for Place {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_map()
+            .entry(&"x", &self.x.to_string())
+            .entry(&"y", &self.y.to_string())
+            .finish()
+    }
 }
 
 impl Place {
     pub fn new(x: f64, y: f64) -> Option<Self> {
-        let x = Decimal::from_f64(x)?;
-        let y = Decimal::from_f64(y)?;
+        let x = Real::from_f64(x)?;
+        let y = Real::from_f64(y)?;
 
         Some(Self { x, y })
     }
 
-    pub const ORIGIN: Self = Self {
-        x: Decimal::ZERO,
-        y: Decimal::ZERO,
-    };
-
-    pub const fn origin() -> Self {
-        Self::ORIGIN
+    pub fn origin() -> Self {
+        Self {
+            x: Real::zero(),
+            y: Real::zero(),
+        }
     }
 
     pub fn offset_to(self, other: Self) -> Offset {
         other - self
     }
 }
+
+///////////
+// Addition
+///////////
 
 impl std::ops::Add<Offset> for Place {
     type Output = Place;
@@ -42,12 +51,33 @@ impl std::ops::Add<Offset> for Place {
     }
 }
 
-impl std::ops::AddAssign for Place {
-    fn add_assign(&mut self, rhs: Self) {
-        self.x += rhs.x;
-        self.y += rhs.y;
+impl std::ops::Add<&Offset> for Place {
+    type Output = Place;
+
+    fn add(self, rhs: &Offset) -> Self::Output {
+        self + rhs.clone()
     }
 }
+
+impl std::ops::Add<Offset> for &Place {
+    type Output = Place;
+
+    fn add(self, rhs: Offset) -> Self::Output {
+        self.clone() + rhs
+    }
+}
+
+impl std::ops::Add<&Offset> for &Place {
+    type Output = Place;
+
+    fn add(self, rhs: &Offset) -> Self::Output {
+        self.clone() + rhs.clone()
+    }
+}
+
+//////////////
+// Subtraction
+//////////////
 
 impl std::ops::Sub for Place {
     type Output = Offset;
@@ -60,39 +90,74 @@ impl std::ops::Sub for Place {
     }
 }
 
+impl std::ops::Sub for &Place {
+    type Output = Offset;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        self.clone() - rhs.clone()
+    }
+}
+
+impl std::ops::Sub<&Place> for Place {
+    type Output = Offset;
+
+    fn sub(self, rhs: &Place) -> Self::Output {
+        self - rhs.clone()
+    }
+}
+
+impl std::ops::Sub<Place> for &Place {
+    type Output = Offset;
+
+    fn sub(self, rhs: Place) -> Self::Output {
+        self.clone() - rhs
+    }
+}
+
+#[cfg(test)]
+pub mod gens {
+    use proptest::prelude::Strategy;
+
+    use super::Place;
+    use crate::real::gens::real;
+    use crate::tests::sampler;
+
+    pub fn place() -> impl Strategy<Value = Place> {
+        (real(), real()).prop_map(|(x, y)| Place { x, y })
+    }
+
+    #[test]
+    #[ignore = "just examples of Place"]
+    fn print_places() {
+        sampler(place()).take(10).for_each(|p| {
+            println!("Place: {p:#}");
+        });
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use proptest::prelude::Strategy;
+    use proptest::array::uniform2;
     use proptest::proptest;
 
-    use super::*;
-
-    fn finite_f64() -> impl Strategy<Value = f64> {
-        proptest::num::f64::NEGATIVE | proptest::num::f64::POSITIVE | proptest::num::f64::ZERO
-    }
-
-    fn offset_gen() -> impl Strategy<Value = Offset> {
-        (finite_f64(), finite_f64()).prop_map(|(x, y)| Offset::new(x, y).expect("finite f64s"))
-    }
-
-    fn place_gen() -> impl Strategy<Value = Place> {
-        (finite_f64(), finite_f64()).prop_map(|(x, y)| Place::new(x, y).expect("finite f64s"))
-    }
+    use crate::offset::gens::offset;
+    use crate::offset::Offset;
+    use crate::place::gens::place;
 
     proptest! {
         #[test]
-        fn offset_zero_place_add_right_identity(p in place_gen()) {
-            assert_eq!(p + Offset::ZERO, p)
+        fn offset_zero_place_add_right_identity(p in place()) {
+            assert_eq!(&p + Offset::zero(), p)
         }
 
         #[test]
-        fn place_add_offset_add_associative(p in place_gen(), a in offset_gen(), b in offset_gen()) {
-            assert_eq!((p + a) + b, p + (a + b))
+        fn place_add_offset_add_associative(p in place(), [a, b] in uniform2(offset())) {
+            assert_eq!((&p + &a) + &b, &p + (&a + &b))
         }
 
         #[test]
-        fn place_add_place_sub(p in place_gen(), q in place_gen()) {
-            assert_eq!(p + (q - p), q)
+        fn place_add_place_sub([p, q] in uniform2(place())) {
+            assert_eq!(&p + (&q - &p), q)
         }
     }
 }

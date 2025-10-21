@@ -1,7 +1,11 @@
-mod offset;
-mod place;
-mod scale;
+mod real;
 
-pub use offset::*;
-pub use place::*;
-pub use scale::*;
+pub mod offset;
+pub mod place;
+pub mod scale;
+pub use offset::Offset;
+pub use place::Place;
+pub use scale::Scale;
+
+#[cfg(test)]
+pub mod tests;

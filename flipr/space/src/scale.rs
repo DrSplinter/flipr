@@ -1,25 +1,27 @@
-use rust_decimal::prelude::FromPrimitive;
-use rust_decimal::Decimal;
+use crate::real::Real;
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-pub struct Scale(pub(super) Decimal);
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub struct Scale(pub(super) Real);
 
-impl Scale {
-    pub fn new(v: f64) -> Option<Self> {
-        Decimal::from_f64(v).map(Self)
-    }
-
-    pub const ONE: Self = Self(Decimal::ONE);
-    pub const ZERO: Self = Self(Decimal::ZERO);
-
-    pub const fn one() -> Self {
-        Self::ONE
-    }
-
-    pub const fn zero() -> Self {
-        Self::ZERO
+impl std::fmt::Display for Scale {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
+
+impl Scale {
+    pub fn one() -> Self {
+        Self(Real::one())
+    }
+
+    pub fn zero() -> Self {
+        Self(Real::zero())
+    }
+}
+
+/////////////////
+// Multiplication
+/////////////////
 
 impl std::ops::Mul for Scale {
     type Output = Scale;
@@ -29,6 +31,34 @@ impl std::ops::Mul for Scale {
     }
 }
 
+impl std::ops::Mul for &Scale {
+    type Output = Scale;
+
+    fn mul(self, rhs: &Scale) -> Self::Output {
+        self.clone() * rhs.clone()
+    }
+}
+
+impl std::ops::Mul<&Scale> for Scale {
+    type Output = Scale;
+
+    fn mul(self, rhs: &Scale) -> Self::Output {
+        self * rhs.clone()
+    }
+}
+
+impl std::ops::Mul<Scale> for &Scale {
+    type Output = Scale;
+
+    fn mul(self, rhs: Scale) -> Self::Output {
+        self.clone() * rhs
+    }
+}
+
+///////////
+// Addition
+///////////
+
 impl std::ops::Add for Scale {
     type Output = Scale;
 
@@ -36,6 +66,34 @@ impl std::ops::Add for Scale {
         Self(self.0 + rhs.0)
     }
 }
+
+impl std::ops::Add for &Scale {
+    type Output = Scale;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        self.clone() + rhs.clone()
+    }
+}
+
+impl std::ops::Add<&Scale> for Scale {
+    type Output = Scale;
+
+    fn add(self, rhs: &Scale) -> Self::Output {
+        self + rhs.clone()
+    }
+}
+
+impl std::ops::Add<Scale> for &Scale {
+    type Output = Scale;
+
+    fn add(self, rhs: Scale) -> Self::Output {
+        self.clone() + rhs
+    }
+}
+
+///////////
+// Negation
+///////////
 
 impl std::ops::Neg for Scale {
     type Output = Scale;
@@ -45,80 +103,103 @@ impl std::ops::Neg for Scale {
     }
 }
 
+impl std::ops::Neg for &Scale {
+    type Output = Scale;
+
+    fn neg(self) -> Self::Output {
+        -self.clone()
+    }
+}
+
+#[cfg(test)]
+pub mod gens {
+    use proptest::prelude::Strategy;
+
+    use super::Scale;
+    use crate::real::gens::real;
+    use crate::tests::sampler;
+
+    /// Generates arbitrary Scale values for testing.
+    pub fn scale() -> impl Strategy<Value = Scale> {
+        real().prop_map(|d| Scale(d))
+    }
+
+    #[test]
+    #[ignore = "just examples of Scale"]
+    fn print_scales() {
+        sampler(scale()).take(10).for_each(|r| {
+            println!("Scale: {:#}", r);
+        });
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use proptest::prelude::Strategy;
-    use proptest::proptest;
+    use proptest::array::{uniform2, uniform3};
+    use proptest::{prop_assert_eq, proptest};
 
-    use super::*;
-
-    fn finite_f64() -> impl Strategy<Value = f64> {
-        proptest::num::f64::NEGATIVE | proptest::num::f64::POSITIVE | proptest::num::f64::ZERO
-    }
-
-    fn scale_gen() -> impl Strategy<Value = Scale> {
-        finite_f64().prop_map(|f| Scale::new(f).expect("finite f64"))
-    }
+    use super::gens::scale;
+    use super::Scale;
 
     proptest! {
         #[test]
-        fn scale_add_associative(a in scale_gen(), b in scale_gen(), c in scale_gen()) {
-            assert_eq!(a + (b + c), (a + b) + c)
+        fn scale_add_associative([m, n, o] in uniform3(scale())) {
+            prop_assert_eq!(&m + (&n + &o), (&m + &n) + &o);
         }
 
         #[test]
-        fn scale_add_commutative(a in scale_gen(), b in scale_gen()) {
-            assert_eq!(a + b, b + a)
+        fn scale_add_commutative([m, n] in uniform2(scale())) {
+            prop_assert_eq!(&m + &n, &n + &m);
         }
 
         #[test]
-        fn scale_zero_scale_add_left_identity(a in scale_gen()) {
-            assert_eq!(Scale::ZERO + a, a)
+        fn scale_zero_scale_add_left_identity(m in scale()) {
+            prop_assert_eq!(Scale::zero() + &m, m);
         }
 
         #[test]
-        fn scale_zero_scale_add_right_identity(a in scale_gen()) {
-            assert_eq!(a + Scale::ZERO, a)
+        fn scale_zero_scale_add_right_identity(m in scale()) {
+            prop_assert_eq!(&m + Scale::zero(), m);
         }
 
         #[test]
-        fn scale_add_inverse(a in scale_gen()) {
-            assert_eq!(a + (-a), Scale::ZERO)
+        fn scale_add_inverse(m in scale()) {
+            prop_assert_eq!(&m + (-&m), Scale::zero());
         }
 
         #[test]
-        fn scale_mul_associative(a in scale_gen(), b in scale_gen(), c in scale_gen()) {
-            assert_eq!(a * (b * c), (a * b) * c)
+        fn scale_mul_associative([m, n, o] in uniform3(scale())) {
+            prop_assert_eq!(&m * (&n * &o), (&m * &n) * &o);
         }
 
         #[test]
-        fn scale_mul_commutative(a in scale_gen(), b in scale_gen()) {
-            assert_eq!(a * b, b * a)
+        fn scale_mul_commutative([m, n] in uniform2(scale())) {
+            prop_assert_eq!(&m * &n, &n * &m);
         }
 
         #[test]
-        fn scale_zero_scale_mul_left_anihilator(a in scale_gen()) {
-            assert_eq!(Scale::ZERO * a, Scale::ZERO)
+        fn scale_zero_scale_mul_left_anihilator(m in scale()) {
+            prop_assert_eq!(Scale::zero() * &m, Scale::zero());
         }
 
         #[test]
-        fn scale_zero_scale_mul_right_anihilator(a in scale_gen()) {
-            assert_eq!(a * Scale::ZERO, Scale::ZERO)
+        fn scale_zero_scale_mul_right_anihilator(m in scale()) {
+            prop_assert_eq!(&m * Scale::zero(), Scale::zero());
         }
 
         #[test]
-        fn scale_one_scale_mul_left_identity(a in scale_gen()) {
-            assert_eq!(Scale::ONE * a, a)
+        fn scale_one_scale_mul_left_identity(m in scale()) {
+            prop_assert_eq!(Scale::one() * &m, m);
         }
 
         #[test]
-        fn scale_one_scale_mul_right_identity(a in scale_gen()) {
-            assert_eq!(a * Scale::ONE, a)
+        fn scale_one_scale_mul_right_identity(m in scale()) {
+            prop_assert_eq!(&m * Scale::one(), m);
         }
 
         #[test]
-        fn scale_mul_ditributes_over_scale_add(a in scale_gen(), b in scale_gen(), c in scale_gen()) {
-            assert_eq!(a * (b + c), a * b + a * c)
+        fn scale_mul_distributes_over_scale_add([m, n, o] in uniform3(scale())) {
+            prop_assert_eq!(&m * (&n + &o), &m * &n + &m * &o);
         }
     }
 }
